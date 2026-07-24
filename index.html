@@ -1,98 +1,171 @@
 <!DOCTYPE html>
 <html>
-<head>
 
+<head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <title>Inventory Scanner</title>
+
+  <script src="https://unpkg.com/html5-qrcode"></script>
 
   <style>
     body {
       font-family: Arial, sans-serif;
       padding: 20px;
       text-align: center;
+      background: #f4f6f8;
+    }
+
+    .container {
+      max-width: 500px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+    }
+
+    h1 {
+      margin-top: 0;
     }
 
     button {
-      padding: 15px 25px;
+      width: 100%;
+      padding: 15px;
       font-size: 18px;
+      margin-top: 15px;
       cursor: pointer;
     }
 
-    video {
+    #reader {
       width: 100%;
-      max-width: 500px;
       margin-top: 20px;
-      border-radius: 10px;
-      background: black;
-      display: none;
     }
 
-    #status {
-      margin-top: 15px;
-      font-size: 18px;
+    #result {
+      margin-top: 20px;
+      padding: 15px;
+      font-size: 20px;
+      font-weight: bold;
+      background: #eeeeee;
+      border-radius: 8px;
     }
   </style>
-
 </head>
+
 
 <body>
 
+<div class="container">
+
   <h1>Inventory Scanner</h1>
 
-  <button onclick="openCamera()">
-    📷 Open Camera
+  <p>Scan your product barcode</p>
+
+  <button onclick="startScanner()">
+    📷 Start Barcode Scanner
   </button>
 
-  <br>
+  <div id="reader"></div>
 
-  <video
-    id="camera"
-    autoplay
-    playsinline>
-  </video>
-
-  <div id="status">
-    Camera not started
+  <div id="result">
+    No barcode scanned
   </div>
+
+</div>
 
 
 <script>
 
-async function openCamera() {
+let scanner = null;
+let scanning = false;
 
-  const video = document.getElementById("camera");
-  const status = document.getElementById("status");
+
+async function startScanner() {
+
+  if (scanning) {
+    return;
+  }
+
+  scanning = true;
+
+  document.getElementById("result").innerText =
+    "Starting camera...";
+
+
+  scanner = new Html5Qrcode("reader");
+
 
   try {
 
-    status.innerText = "Opening camera...";
+    await scanner.start(
 
-    const stream =
-      await navigator.mediaDevices.getUserMedia({
+      {
+        facingMode: "environment"
+      },
 
-        video: {
-          facingMode: {
-            ideal: "environment"
-          }
+      {
+        fps: 10,
+
+        qrbox: {
+          width: 280,
+          height: 120
         },
 
-        audio: false
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.CODE_128
+        ]
+      },
 
-      });
+      barcodeDetected,
 
-    video.srcObject = stream;
+      function(errorMessage) {
+        // Ignore normal scanning errors
+      }
 
-    video.style.display = "block";
+    );
 
-    status.innerText = "✅ Camera Working";
+
+    document.getElementById("result").innerText =
+      "Camera ready - scan barcode";
+
+
+  } catch(error) {
+
+    scanning = false;
+
+    document.getElementById("result").innerText =
+      "Camera Error: " + error;
 
   }
 
-  catch(error) {
+}
 
-    status.innerText =
-      "❌ Camera Error: " + error.message;
+
+
+async function barcodeDetected(decodedText) {
+
+  // Prevent repeated detection
+  if (!scanning) {
+    return;
+  }
+
+  scanning = false;
+
+
+  document.getElementById("result").innerHTML =
+    "✅ BARCODE DETECTED<br><br>" +
+    decodedText;
+
+
+  // Stop camera after successful scan
+
+  try {
+
+    await scanner.stop();
+
+  } catch(error) {
+
+    console.log(error);
 
   }
 
@@ -101,4 +174,5 @@ async function openCamera() {
 </script>
 
 </body>
+
 </html>
