@@ -24,14 +24,10 @@
       border-radius: 12px;
     }
 
-    h1 {
-      margin-top: 0;
-    }
-
     button {
       width: 100%;
       padding: 15px;
-      font-size: 18px;
+      font-size: 17px;
       margin-top: 15px;
       cursor: pointer;
     }
@@ -41,17 +37,17 @@
       margin-top: 20px;
     }
 
-    #result {
+    .box {
       margin-top: 20px;
       padding: 15px;
-      font-size: 20px;
-      font-weight: bold;
       background: #eeeeee;
       border-radius: 8px;
+      font-size: 18px;
+      font-weight: bold;
     }
   </style>
-</head>
 
+</head>
 
 <body>
 
@@ -59,15 +55,29 @@
 
   <h1>Inventory Scanner</h1>
 
-  <p>Scan your product barcode</p>
+  <p>Mobile Barcode Scanner</p>
+
+
+  <!-- API TEST BUTTON -->
+
+  <button onclick="testAPI()">
+    🧪 TEST API CONNECTION
+  </button>
+
+  <div id="apiResult" class="box">
+    API not tested
+  </div>
+
+
+  <!-- BARCODE SCANNER -->
 
   <button onclick="startScanner()">
-    📷 Start Barcode Scanner
+    📷 START BARCODE SCANNER
   </button>
 
   <div id="reader"></div>
 
-  <div id="result">
+  <div id="scanResult" class="box">
     No barcode scanned
   </div>
 
@@ -75,6 +85,74 @@
 
 
 <script>
+
+// =====================================
+// APPS SCRIPT API URL
+// =====================================
+
+const API_URL =
+  "https://script.google.com/macros/s/AKfycbxwSEHv6JQGZAxxfvuEPKUHUEZwqXpWgSYr4QCcHzObvuQ3tPgcTkRQofplozrCXacL/exec";
+
+
+// =====================================
+// TEST API CONNECTION
+// =====================================
+
+async function testAPI() {
+
+  const result =
+    document.getElementById("apiResult");
+
+  result.innerText = "Testing connection...";
+
+  try {
+
+    const response = await fetch(API_URL, {
+
+      method: "POST",
+
+      headers: {
+        "Content-Type": "text/plain;charset=utf-8"
+      },
+
+      body: JSON.stringify({
+        action: "TEST"
+      })
+
+    });
+
+
+    const data = await response.json();
+
+
+    if (data.success) {
+
+      result.innerText =
+        "✅ " + data.message;
+
+    } else {
+
+      result.innerText =
+        "❌ " + data.message;
+
+    }
+
+  }
+
+  catch(error) {
+
+    result.innerText =
+      "❌ CONNECTION ERROR: " + error.message;
+
+  }
+
+}
+
+
+
+// =====================================
+// BARCODE SCANNER
+// =====================================
 
 let scanner = null;
 let scanning = false;
@@ -88,7 +166,7 @@ async function startScanner() {
 
   scanning = true;
 
-  document.getElementById("result").innerText =
+  document.getElementById("scanResult").innerText =
     "Starting camera...";
 
 
@@ -119,22 +197,24 @@ async function startScanner() {
       barcodeDetected,
 
       function(errorMessage) {
-        // Ignore normal scanning errors
+        // Normal scanning errors ignored
       }
 
     );
 
 
-    document.getElementById("result").innerText =
+    document.getElementById("scanResult").innerText =
       "Camera ready - scan barcode";
 
 
-  } catch(error) {
+  }
+
+  catch(error) {
 
     scanning = false;
 
-    document.getElementById("result").innerText =
-      "Camera Error: " + error;
+    document.getElementById("scanResult").innerText =
+      "❌ Camera Error: " + error;
 
   }
 
@@ -142,28 +222,32 @@ async function startScanner() {
 
 
 
+// =====================================
+// BARCODE DETECTED
+// =====================================
+
 async function barcodeDetected(decodedText) {
 
-  // Prevent repeated detection
   if (!scanning) {
     return;
   }
 
+
   scanning = false;
 
 
-  document.getElementById("result").innerHTML =
+  document.getElementById("scanResult").innerHTML =
     "✅ BARCODE DETECTED<br><br>" +
     decodedText;
 
-
-  // Stop camera after successful scan
 
   try {
 
     await scanner.stop();
 
-  } catch(error) {
+  }
+
+  catch(error) {
 
     console.log(error);
 
