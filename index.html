@@ -44,7 +44,7 @@
 
     .section {
       margin-top: 25px;
-      padding-top: 10px;
+      padding-top: 15px;
       border-top: 1px solid #ddd;
     }
 
@@ -53,7 +53,6 @@
       box-sizing: border-box;
       padding: 15px;
       font-size: 20px;
-      margin-top: 10px;
       text-align: center;
       border: 1px solid #aaa;
       border-radius: 8px;
@@ -62,11 +61,25 @@
     button {
       width: 100%;
       padding: 15px;
-      margin-top: 15px;
+      margin-top: 12px;
       font-size: 17px;
       cursor: pointer;
       border-radius: 8px;
       border: 1px solid #aaa;
+    }
+
+    .movementButtons {
+      display: flex;
+      gap: 10px;
+    }
+
+    .movementButtons button {
+      width: 50%;
+    }
+
+    .selected {
+      font-weight: bold;
+      border: 3px solid #222;
     }
 
     #reader {
@@ -85,6 +98,14 @@
       word-break: break-word;
     }
 
+    #stockSection {
+      display: none;
+    }
+
+    #logoutButton {
+      display: none;
+    }
+
   </style>
 
 </head>
@@ -101,9 +122,11 @@
   </div>
 
 
+  <!-- ===================================== -->
   <!-- LOGIN -->
+  <!-- ===================================== -->
 
-  <div class="section">
+  <div id="loginSection" class="section">
 
     <h3>🔐 Scanner Login</h3>
 
@@ -128,43 +151,77 @@
   </div>
 
 
-  <!-- API TEST -->
+  <!-- ===================================== -->
+  <!-- LOGOUT -->
+  <!-- ===================================== -->
 
-  <div class="section">
+  <button
+    id="logoutButton"
+    onclick="logoutScanner()"
+  >
+    🔒 LOGOUT
+  </button>
 
-    <h3>API Connection</h3>
 
-    <button onclick="testAPI()">
-      🧪 TEST API CONNECTION
-    </button>
+  <!-- ===================================== -->
+  <!-- STOCK SECTION -->
+  <!-- ===================================== -->
 
-    <div
-      id="apiResult"
-      class="resultBox"
-    >
-      API not tested
+  <div
+    id="stockSection"
+    class="section"
+  >
+
+    <h3>Stock Movement</h3>
+
+    <div class="movementButtons">
+
+      <button
+        id="inButton"
+        onclick="selectMovement('IN')"
+      >
+        📥 STOCK IN
+      </button>
+
+      <button
+        id="outButton"
+        onclick="selectMovement('OUT')"
+      >
+        📤 STOCK OUT
+      </button>
+
     </div>
 
-  </div>
 
+    <div
+      id="movementResult"
+      class="resultBox"
+    >
+      Select STOCK IN or STOCK OUT
+    </div>
 
-  <!-- BARCODE SCANNER -->
-
-  <div class="section">
-
-    <h3>Barcode Scanner</h3>
 
     <button onclick="startScanner()">
       📷 START BARCODE SCANNER
     </button>
 
+
     <div id="reader"></div>
+
 
     <div
       id="scanResult"
       class="resultBox"
     >
-      No barcode scanned
+      Ready to scan
+    </div>
+
+
+    <div
+      id="stockResult"
+      class="resultBox"
+    >
+      No stock transaction yet
     </div>
 
   </div>
@@ -176,12 +233,26 @@
 
 
 // ==================================================
-// APPS SCRIPT URL
+// GOOGLE APPS SCRIPT API
 // ==================================================
 
 const API_URL =
 "https://script.google.com/macros/s/AKfycbxwSEHv6JQGZAxxfvuEPKUHUEZwqXpWgSYr4QCcHzObvuQ3tPgcTkRQofplozrCXacL/exec";
 
+
+// ==================================================
+// VARIABLES
+// ==================================================
+
+let sessionToken = "";
+
+let selectedMovement = "";
+
+let scanner = null;
+
+let scanning = false;
+
+let processing = false;
 
 
 // ==================================================
@@ -212,7 +283,7 @@ async function loginScanner() {
 
 
   result.innerText =
-    "⏳ Checking PIN...";
+    "⏳ Logging in...";
 
 
   try {
@@ -223,10 +294,8 @@ async function loginScanner() {
         method: "POST",
 
         headers: {
-
           "Content-Type":
             "text/plain;charset=utf-8"
-
         },
 
         body: JSON.stringify({
@@ -246,11 +315,25 @@ async function loginScanner() {
 
     if (data.success === true) {
 
+      sessionToken = data.token;
+
+
+      sessionStorage.setItem(
+        "inventorySession",
+        sessionToken
+      );
+
+
+      document
+        .getElementById("pin")
+        .value = "";
+
+
       result.innerText =
         "✅ LOGIN SUCCESSFUL";
 
-      // Remove PIN from screen
-      document.getElementById("pin").value = "";
+
+      showStockScreen();
 
     }
 
@@ -260,7 +343,6 @@ async function loginScanner() {
         "❌ " + data.message;
 
     }
-
 
   }
 
@@ -275,19 +357,440 @@ async function loginScanner() {
 }
 
 
+// ==================================================
+// SHOW STOCK SCREEN
+// ==================================================
+
+function showStockScreen() {
+
+  document
+    .getElementById("loginSection")
+    .style.display = "none";
+
+
+  document
+    .getElementById("stockSection")
+    .style.display = "block";
+
+
+  document
+    .getElementById("logoutButton")
+    .style.display = "block";
+
+}
+
 
 // ==================================================
-// API CONNECTION TEST
+// SHOW LOGIN SCREEN
 // ==================================================
 
-async function testAPI() {
+function showLoginScreen() {
+
+  document
+    .getElementById("loginSection")
+    .style.display = "block";
+
+
+  document
+    .getElementById("stockSection")
+    .style.display = "none";
+
+
+  document
+    .getElementById("logoutButton")
+    .style.display = "none";
+
+}
+
+
+// ==================================================
+// CHECK EXISTING SESSION
+// ==================================================
+
+async function checkExistingSession() {
+
+  const savedToken =
+    sessionStorage.getItem(
+      "inventorySession"
+    );
+
+
+  if (!savedToken) {
+
+    showLoginScreen();
+
+    return;
+
+  }
+
+
+  try {
+
+    const response =
+      await fetch(API_URL, {
+
+        method: "POST",
+
+        headers: {
+          "Content-Type":
+            "text/plain;charset=utf-8"
+        },
+
+        body: JSON.stringify({
+
+          action: "SESSION",
+
+          token: savedToken
+
+        })
+
+      });
+
+
+    const data =
+      await response.json();
+
+
+    if (data.success === true) {
+
+      sessionToken =
+        savedToken;
+
+
+      showStockScreen();
+
+    }
+
+    else {
+
+      sessionStorage.removeItem(
+        "inventorySession"
+      );
+
+
+      sessionToken = "";
+
+
+      showLoginScreen();
+
+    }
+
+  }
+
+  catch(error) {
+
+    showLoginScreen();
+
+  }
+
+}
+
+
+// ==================================================
+// LOGOUT
+// ==================================================
+
+async function logoutScanner() {
+
+  const token =
+    sessionToken;
+
+
+  sessionToken = "";
+
+
+  sessionStorage.removeItem(
+    "inventorySession"
+  );
+
+
+  try {
+
+    await fetch(API_URL, {
+
+      method: "POST",
+
+      headers: {
+        "Content-Type":
+          "text/plain;charset=utf-8"
+      },
+
+      body: JSON.stringify({
+
+        action: "LOGOUT",
+
+        token: token
+
+      })
+
+    });
+
+  }
+
+  catch(error) {
+
+    console.log(error);
+
+  }
+
+
+  selectedMovement = "";
+
+
+  showLoginScreen();
+
+}
+
+
+// ==================================================
+// SELECT STOCK IN / OUT
+// ==================================================
+
+function selectMovement(movement) {
+
+  selectedMovement =
+    movement;
+
+
+  const inButton =
+    document.getElementById(
+      "inButton"
+    );
+
+
+  const outButton =
+    document.getElementById(
+      "outButton"
+    );
+
+
+  inButton.classList.remove(
+    "selected"
+  );
+
+
+  outButton.classList.remove(
+    "selected"
+  );
+
+
+  if (movement === "IN") {
+
+    inButton.classList.add(
+      "selected"
+    );
+
+
+    document
+      .getElementById("movementResult")
+      .innerText =
+        "📥 STOCK IN SELECTED";
+
+  }
+
+
+  if (movement === "OUT") {
+
+    outButton.classList.add(
+      "selected"
+    );
+
+
+    document
+      .getElementById("movementResult")
+      .innerText =
+        "📤 STOCK OUT SELECTED";
+
+  }
+
+}
+
+
+// ==================================================
+// START BARCODE SCANNER
+// ==================================================
+
+async function startScanner() {
+
+  if (!sessionToken) {
+
+    alert(
+      "Please login first."
+    );
+
+    return;
+
+  }
+
+
+  if (!selectedMovement) {
+
+    document
+      .getElementById("scanResult")
+      .innerText =
+        "❌ SELECT STOCK IN OR STOCK OUT FIRST";
+
+    return;
+
+  }
+
+
+  if (scanning || processing) {
+
+    return;
+
+  }
+
+
+  scanning = true;
+
+
+  document
+    .getElementById("scanResult")
+    .innerText =
+      "⏳ Starting camera...";
+
+
+  scanner =
+    new Html5Qrcode(
+      "reader"
+    );
+
+
+  try {
+
+    await scanner.start(
+
+      {
+        facingMode: "environment"
+      },
+
+      {
+
+        fps: 10,
+
+        qrbox: {
+          width: 280,
+          height: 120
+        },
+
+        formatsToSupport: [
+
+          Html5QrcodeSupportedFormats
+            .CODE_128
+
+        ]
+
+      },
+
+      barcodeDetected,
+
+      function(errorMessage) {
+
+        // Normal scan errors ignored
+
+      }
+
+    );
+
+
+    document
+      .getElementById("scanResult")
+      .innerText =
+        "📷 Camera ready - scan barcode";
+
+  }
+
+  catch(error) {
+
+    scanning = false;
+
+
+    document
+      .getElementById("scanResult")
+      .innerText =
+        "❌ CAMERA ERROR: " +
+        error;
+
+  }
+
+}
+
+
+// ==================================================
+// BARCODE DETECTED
+// ==================================================
+
+async function barcodeDetected(decodedText) {
+
+  if (
+    !scanning ||
+    processing
+  ) {
+
+    return;
+
+  }
+
+
+  scanning = false;
+
+  processing = true;
+
+
+  const barcode =
+    decodedText
+      .trim()
+      .toUpperCase();
+
+
+  document
+    .getElementById("scanResult")
+    .innerHTML =
+
+      "✅ BARCODE DETECTED" +
+      "<br><br>" +
+      barcode;
+
+
+  // Stop camera before updating stock
+  try {
+
+    await scanner.stop();
+
+  }
+
+  catch(error) {
+
+    console.log(error);
+
+  }
+
+
+  await updateStock(
+    barcode
+  );
+
+
+  processing = false;
+
+}
+
+
+// ==================================================
+// UPDATE STOCK
+// ==================================================
+
+async function updateStock(barcode) {
 
   const result =
-    document.getElementById("apiResult");
+    document.getElementById(
+      "stockResult"
+    );
 
 
   result.innerText =
-    "⏳ Testing connection...";
+    "⏳ Updating stock...";
 
 
   try {
@@ -306,7 +809,14 @@ async function testAPI() {
 
         body: JSON.stringify({
 
-          action: "TEST"
+          action: "STOCK",
+
+          token: sessionToken,
+
+          barcode: barcode,
+
+          movement:
+            selectedMovement
 
         })
 
@@ -317,27 +827,92 @@ async function testAPI() {
       await response.json();
 
 
-    if (data.success === true) {
+    // SESSION EXPIRED
+    if (
+      data.success === false &&
+      data.message ===
+      "LOGIN REQUIRED"
+    ) {
+
+      sessionToken = "";
+
+
+      sessionStorage.removeItem(
+        "inventorySession"
+      );
+
 
       result.innerText =
-        "✅ " + data.message;
+        "❌ SESSION EXPIRED - LOGIN AGAIN";
+
+
+      showLoginScreen();
+
+      return;
+
+    }
+
+
+    // STOCK SUCCESS
+    if (data.success === true) {
+
+      const movementText =
+        data.movement === "IN"
+          ? "STOCK IN SUCCESSFUL"
+          : "STOCK OUT SUCCESSFUL";
+
+
+      result.innerHTML =
+
+        "✅ " +
+        movementText +
+
+        "<br><br>" +
+
+        "Product: " +
+        data.product +
+
+        "<br>" +
+
+        "SKU: " +
+        data.sku +
+
+        "<br>" +
+
+        "Quantity: " +
+        data.qty +
+
+        "<br>" +
+
+        "Old Stock: " +
+        data.oldStock +
+
+        "<br>" +
+
+        "New Stock: " +
+        data.stock +
+
+        "<br><br>" +
+
+        "Transaction: " +
+        data.transactionId;
 
     }
 
     else {
 
       result.innerText =
-        "❌ " + data.message;
+        "❌ " +
+        data.message;
 
     }
-
 
   }
 
   catch(error) {
 
     result.innerText =
-      "❌ CONNECTION ERROR: " +
+      "❌ STOCK UPDATE ERROR: " +
       error.message;
 
   }
@@ -345,137 +920,14 @@ async function testAPI() {
 }
 
 
-
 // ==================================================
-// BARCODE SCANNER
-// ==================================================
-
-let scanner = null;
-let scanning = false;
-
-
-async function startScanner() {
-
-  if (scanning) {
-    return;
-  }
-
-
-  scanning = true;
-
-
-  const result =
-    document.getElementById("scanResult");
-
-
-  result.innerText =
-    "⏳ Starting camera...";
-
-
-  scanner =
-    new Html5Qrcode("reader");
-
-
-  try {
-
-    await scanner.start(
-
-      {
-        facingMode: "environment"
-      },
-
-      {
-
-        fps: 10,
-
-        qrbox: {
-
-          width: 280,
-
-          height: 120
-
-        },
-
-        formatsToSupport: [
-
-          Html5QrcodeSupportedFormats.CODE_128
-
-        ]
-
-      },
-
-      barcodeDetected,
-
-      function(errorMessage) {
-
-        // Ignore normal scan errors
-
-      }
-
-    );
-
-
-    result.innerText =
-      "📷 Camera ready - scan barcode";
-
-
-  }
-
-  catch(error) {
-
-    scanning = false;
-
-    result.innerText =
-      "❌ CAMERA ERROR: " + error;
-
-  }
-
-}
-
-
-
-// ==================================================
-// BARCODE DETECTED
+// PAGE LOAD
 // ==================================================
 
-async function barcodeDetected(decodedText) {
-
-  if (!scanning) {
-    return;
-  }
-
-
-  scanning = false;
-
-
-  const barcode =
-    decodedText
-      .trim()
-      .toUpperCase();
-
-
-  document
-    .getElementById("scanResult")
-    .innerHTML =
-
-      "✅ BARCODE DETECTED" +
-      "<br><br>" +
-      barcode;
-
-
-  try {
-
-    await scanner.stop();
-
-  }
-
-  catch(error) {
-
-    console.log(error);
-
-  }
-
-}
+window.addEventListener(
+  "load",
+  checkExistingSession
+);
 
 
 </script>
