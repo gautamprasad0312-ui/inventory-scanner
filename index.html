@@ -2,6 +2,7 @@
 <html>
 
 <head>
+
   <meta charset="UTF-8">
 
   <meta
@@ -11,7 +12,6 @@
 
   <title>Inventory Scanner</title>
 
-  <!-- BARCODE SCANNER LIBRARY -->
   <script src="https://unpkg.com/html5-qrcode"></script>
 
   <style>
@@ -42,6 +42,23 @@
       margin-bottom: 25px;
     }
 
+    .section {
+      margin-top: 25px;
+      padding-top: 10px;
+      border-top: 1px solid #ddd;
+    }
+
+    input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 15px;
+      font-size: 20px;
+      margin-top: 10px;
+      text-align: center;
+      border: 1px solid #aaa;
+      border-radius: 8px;
+    }
+
     button {
       width: 100%;
       padding: 15px;
@@ -68,10 +85,6 @@
       word-break: break-word;
     }
 
-    .section {
-      margin-top: 25px;
-    }
-
   </style>
 
 </head>
@@ -88,9 +101,34 @@
   </div>
 
 
-  <!-- ============================== -->
-  <!-- API CONNECTION TEST -->
-  <!-- ============================== -->
+  <!-- LOGIN -->
+
+  <div class="section">
+
+    <h3>🔐 Scanner Login</h3>
+
+    <input
+      type="password"
+      id="pin"
+      inputmode="numeric"
+      placeholder="Enter PIN"
+    >
+
+    <button onclick="loginScanner()">
+      🔓 LOGIN
+    </button>
+
+    <div
+      id="loginResult"
+      class="resultBox"
+    >
+      Not logged in
+    </div>
+
+  </div>
+
+
+  <!-- API TEST -->
 
   <div class="section">
 
@@ -110,10 +148,7 @@
   </div>
 
 
-
-  <!-- ============================== -->
   <!-- BARCODE SCANNER -->
-  <!-- ============================== -->
 
   <div class="section">
 
@@ -137,12 +172,11 @@
 </div>
 
 
-
 <script>
 
 
 // ==================================================
-// GOOGLE APPS SCRIPT API
+// APPS SCRIPT URL
 // ==================================================
 
 const API_URL =
@@ -151,7 +185,99 @@ const API_URL =
 
 
 // ==================================================
-// TEST API CONNECTION
+// LOGIN
+// ==================================================
+
+async function loginScanner() {
+
+  const pin =
+    document
+      .getElementById("pin")
+      .value
+      .trim();
+
+
+  const result =
+    document.getElementById("loginResult");
+
+
+  if (pin === "") {
+
+    result.innerText =
+      "❌ ENTER PIN";
+
+    return;
+
+  }
+
+
+  result.innerText =
+    "⏳ Checking PIN...";
+
+
+  try {
+
+    const response =
+      await fetch(API_URL, {
+
+        method: "POST",
+
+        headers: {
+
+          "Content-Type":
+            "text/plain;charset=utf-8"
+
+        },
+
+        body: JSON.stringify({
+
+          action: "LOGIN",
+
+          pin: pin
+
+        })
+
+      });
+
+
+    const data =
+      await response.json();
+
+
+    if (data.success === true) {
+
+      result.innerText =
+        "✅ LOGIN SUCCESSFUL";
+
+      // Remove PIN from screen
+      document.getElementById("pin").value = "";
+
+    }
+
+    else {
+
+      result.innerText =
+        "❌ " + data.message;
+
+    }
+
+
+  }
+
+  catch(error) {
+
+    result.innerText =
+      "❌ LOGIN ERROR: " +
+      error.message;
+
+  }
+
+}
+
+
+
+// ==================================================
+// API CONNECTION TEST
 // ==================================================
 
 async function testAPI() {
@@ -172,12 +298,16 @@ async function testAPI() {
         method: "POST",
 
         headers: {
+
           "Content-Type":
-          "text/plain;charset=utf-8"
+            "text/plain;charset=utf-8"
+
         },
 
         body: JSON.stringify({
+
           action: "TEST"
+
         })
 
       });
@@ -221,9 +351,7 @@ async function testAPI() {
 // ==================================================
 
 let scanner = null;
-
 let scanning = false;
-
 
 
 async function startScanner() {
@@ -261,12 +389,17 @@ async function startScanner() {
         fps: 10,
 
         qrbox: {
+
           width: 280,
+
           height: 120
+
         },
 
         formatsToSupport: [
+
           Html5QrcodeSupportedFormats.CODE_128
+
         ]
 
       },
@@ -275,7 +408,7 @@ async function startScanner() {
 
       function(errorMessage) {
 
-        // Normal scanning errors ignored
+        // Ignore normal scan errors
 
       }
 
@@ -302,7 +435,7 @@ async function startScanner() {
 
 
 // ==================================================
-// BARCODE SUCCESSFULLY DETECTED
+// BARCODE DETECTED
 // ==================================================
 
 async function barcodeDetected(decodedText) {
@@ -321,13 +454,13 @@ async function barcodeDetected(decodedText) {
       .toUpperCase();
 
 
-  document.getElementById(
-    "scanResult"
-  ).innerHTML =
+  document
+    .getElementById("scanResult")
+    .innerHTML =
 
-    "✅ BARCODE DETECTED" +
-    "<br><br>" +
-    barcode;
+      "✅ BARCODE DETECTED" +
+      "<br><br>" +
+      barcode;
 
 
   try {
