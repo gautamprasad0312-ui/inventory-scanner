@@ -1,17 +1,104 @@
 <!DOCTYPE html>
 <html>
 <head>
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <title>Inventory Scanner</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      text-align: center;
+    }
+
+    button {
+      padding: 15px 25px;
+      font-size: 18px;
+      cursor: pointer;
+    }
+
+    video {
+      width: 100%;
+      max-width: 500px;
+      margin-top: 20px;
+      border-radius: 10px;
+      background: black;
+      display: none;
+    }
+
+    #status {
+      margin-top: 15px;
+      font-size: 18px;
+    }
+  </style>
+
 </head>
 
 <body>
 
   <h1>Inventory Scanner</h1>
 
-  <p>Mobile Scanner Website Working</p>
+  <button onclick="openCamera()">
+    📷 Open Camera
+  </button>
 
-  <button>Open Scanner</button>
+  <br>
+
+  <video
+    id="camera"
+    autoplay
+    playsinline>
+  </video>
+
+  <div id="status">
+    Camera not started
+  </div>
+
+
+<script>
+
+async function openCamera() {
+
+  const video = document.getElementById("camera");
+  const status = document.getElementById("status");
+
+  try {
+
+    status.innerText = "Opening camera...";
+
+    const stream =
+      await navigator.mediaDevices.getUserMedia({
+
+        video: {
+          facingMode: {
+            ideal: "environment"
+          }
+        },
+
+        audio: false
+
+      });
+
+    video.srcObject = stream;
+
+    video.style.display = "block";
+
+    status.innerText = "✅ Camera Working";
+
+  }
+
+  catch(error) {
+
+    status.innerText =
+      "❌ Camera Error: " + error.message;
+
+  }
+
+}
+
+</script>
 
 </body>
 </html>
